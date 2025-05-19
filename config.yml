@@ -7,3 +7,14 @@ project:
   description: "Mins Frame"
 
 # 프로젝트 설정
+frontend:
+  port: 3000
+  host: 0.0.0.0
+  env:
+    - .env
+
+backend:
+  port: 5001
+  host: 0.0.0.0
+  env:
+    - .env

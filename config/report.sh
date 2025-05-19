@@ -6,3 +6,7 @@ cloc . --exclude-dir=dist,.next,node_modules --not-match-f='(^|/)pnpm-lock\.yaml
 cd frontend
 tree . -I ".next|node_modules|pnpm-lock.yaml" --prune
 cloc . --exclude-dir=dist,.next,node_modules --not-match-f='(^|/)pnpm-lock\.yaml$'
+# backend context
+cd ../backend
+tree . -I "dist|node_modules|pnpm-lock.yaml" --prune
+cloc . --exclude-dir=node_modules --not-match-f='(^|/)pnpm-lock\.yaml$'
