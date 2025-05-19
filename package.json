@@ -1,0 +1,12 @@
+{
+  "name": "mins-frame",
+  "private": true,
+  "packageManager": "pnpm@10.9.0",
+  "workspaces": ["frontend"],
+
+  "scripts": {
+    "dev":   "pnpm --parallel --workspace-concurrency=1 dev",
+    "build": "pnpm -r run build",
+    "start": "pnpm -r run start"
+  }
+}

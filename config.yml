@@ -1,0 +1,9 @@
+# config.yml
+
+# 프로젝트 정보
+project:
+  name: "mins-frame"
+  version: "1.0.0"
+  description: "Mins Frame"
+
+# 프로젝트 설정
