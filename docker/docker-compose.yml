@@ -1,9 +1,15 @@
-name: mins-frame
+# docker-compose.yml
+name: ${PROJECT_NAME}-${MODE}
 
 services:
   frontend:
+    platform: linux/arm64
+    container_name: ${PROJECT_NAME}-${SERVICE_NAME}
+    image: ${PROJECT_NAME}:${SERVICE_NAME}
     build:
       context: ..
       dockerfile: frontend/Dockerfile
     ports:
       - "3000:3000"
+    env_file:
+      - ../.env
