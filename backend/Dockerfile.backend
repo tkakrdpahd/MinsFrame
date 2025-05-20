@@ -1,0 +1,100 @@
+# Dockerfile.backend
+
+# ----- Base Stage -----
+FROM rockylinux/rockylinux:9 AS base
+
+# 필요한 시스템 패키지 설치
+RUN dnf update -y && \
+    dnf install -y --allowerasing epel-release curl bash wget libaio unzip libnsl procps-ng \
+    gcc gcc-c++ make python3
+
+# NVM 설정
+ENV NVM_DIR=/root/.nvm
+ENV NODE_VERSION=22
+
+# Oracle Instant Client 설치
+RUN mkdir -p /opt/oracle && \
+    cd /opt/oracle && \
+    wget https://download.oracle.com/otn_software/linux/instantclient/1926000/instantclient-basic-linux.arm64-19.26.0.0.0dbru.zip && \
+    unzip instantclient-basic-linux.arm64-19.26.0.0.0dbru.zip && \
+    rm instantclient-basic-linux.arm64-19.26.0.0.0dbru.zip
+
+# 환경변수 설정
+ENV LD_LIBRARY_PATH=/opt/oracle/instantclient_19_26
+ENV ORACLE_HOME=/opt/oracle/instantclient_19_26
+ENV PATH=$ORACLE_HOME:$PATH
+
+# NVM 설치
+RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.5/install.sh | bash && \
+    chmod +x $NVM_DIR/nvm.sh
+
+# Node.js 설치
+RUN . $NVM_DIR/nvm.sh && \
+    nvm install $NODE_VERSION && \
+    nvm alias default $NODE_VERSION
+
+ENV PATH=$NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
+
+# PNPM 설치
+RUN . $NVM_DIR/nvm.sh && npm install -g pnpm
+
+# 작업 디렉토리 설정
+WORKDIR /app
+
+# Oracle Wallet 설정
+COPY Wallet.zip /app/Wallet.zip
+RUN unzip /app/Wallet.zip -d /app/Wallet && \
+    chmod -R 600 /app/Wallet && \
+    ls -la /app/Wallet
+
+# sqlnet.ora 설정
+RUN cat /app/Wallet/sqlnet.ora && \
+    echo "WALLET_LOCATION = (SOURCE = (METHOD = file) (METHOD_DATA = (DIRECTORY=\"/app/Wallet\")))" > /app/Wallet/sqlnet.ora && \
+    echo "SSL_SERVER_DN_MATCH=yes" >> /app/Wallet/sqlnet.ora
+
+ENV TNS_ADMIN=/app/Wallet
+
+# ----- Build Stage -----
+FROM base AS build
+
+ARG MODE=production
+ENV MODE=${MODE}
+
+# 모노레포 전체 복사 (package.json과 pnpm-workspace.yaml 포함)
+COPY package.json pnpm-workspace.yaml ./
+COPY backend/ backend/
+COPY packages/ packages/
+
+# 공통 모듈 및 백엔드 의존성 설치
+RUN . $NVM_DIR/nvm.sh && pnpm install --frozen-lockfile
+
+# 공통 모듈 먼저 빌드
+RUN . $NVM_DIR/nvm.sh && pnpm --filter @mins-frame/shared build
+
+# bcrypt 재빌드 (필요한 경우)
+RUN . $NVM_DIR/nvm.sh && cd backend/node_modules/bcrypt && npm rebuild bcrypt --build-from-source || true
+
+# 백엔드 빌드
+RUN . $NVM_DIR/nvm.sh && pnpm --filter backend build
+
+# ----- Final Stage -----
+FROM base AS final
+
+# 모노레포 필수 파일만 복사
+COPY --from=build /app/package.json /app/pnpm-workspace.yaml ./
+COPY --from=build /app/backend/package.json ./backend/
+COPY --from=build /app/backend/dist ./backend/dist
+COPY --from=build /app/packages /app/packages
+
+# 프로덕션 모드에서 필요한 의존성만 설치
+RUN . $NVM_DIR/nvm.sh && pnpm install --prod --frozen-lockfile
+
+WORKDIR /app/backend
+
+EXPOSE 3000
+
+ARG MODE=production
+ENV MODE=${MODE}
+
+# 개발 모드 또는 프로덕션 모드로 실행
+CMD [ "sh", "-c", "if [ \"$MODE\" = \"development\" ]; then . $NVM_DIR/nvm.sh && cd .. && pnpm --filter backend run start:dev; else . $NVM_DIR/nvm.sh && cd .. && pnpm --filter backend run start:prod; fi" ]
