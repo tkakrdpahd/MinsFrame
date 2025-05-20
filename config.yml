@@ -5,16 +5,17 @@ project:
   name: "mins-frame"
   version: "1.0.0"
   description: "Mins Frame"
+  mode: "dev"
 
 # 프로젝트 설정
 frontend:
   port: 3000
   host: 0.0.0.0
   env:
-    - .env
+    - .env.frontend
 
 backend:
   port: 5001
   host: 0.0.0.0
   env:
-    - .env
+    - .env.backend
